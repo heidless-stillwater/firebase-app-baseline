@@ -154,7 +154,7 @@ export function ImageProcessor() {
           errorEmitter.emit('permission-error', permissionError);
         });
 
-    } catch (error: any) => {
+    } catch (error: any) {
       // This will now only catch errors from storage uploads or resizing
       toast({
         variant: 'destructive',

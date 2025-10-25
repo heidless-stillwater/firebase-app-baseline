@@ -53,7 +53,7 @@ export function ControlPanel({
 
   return (
     <Sidebar>
-      <SidebarHeader>
+      <SidebarHeader className="hidden md:flex">
         <AetheriaLogo />
       </SidebarHeader>
       <SidebarContent className="p-0">

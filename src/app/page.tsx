@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { collection, query, orderBy } from 'firebase/firestore';
+import { Header } from '@/components/header';
 
 export default function Home() {
   const [originalImage, setOriginalImage] = React.useState<{ id: string; url: string } | null>(null);
@@ -168,6 +169,7 @@ export default function Home() {
           isLoadingHistory={isLoadingImages}
         />
         <SidebarInset>
+          <Header />
           <div className="p-4 md:p-8">
             <ImageWorkspace
               originalImage={originalImage?.url || null}

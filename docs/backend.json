@@ -180,6 +180,43 @@
         "fileSize",
         "mimeType"
       ]
+    },
+    "ContactSubmission": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ContactSubmission",
+      "type": "object",
+      "description": "Represents a submission from the contact form.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the person submitting the form."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the person submitting the form.",
+          "format": "email"
+        },
+        "message": {
+          "type": "string",
+          "description": "The message content."
+        },
+        "attachmentUrl": {
+          "type": "string",
+          "description": "URL of the uploaded attachment in Firebase Storage.",
+          "format": "uri"
+        },
+        "submittedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the form was submitted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "name",
+        "email",
+        "message",
+        "submittedAt"
+      ]
     }
   },
   "auth": {
@@ -269,6 +306,22 @@
             {
               "name": "styleVariationId",
               "description": "The unique identifier of the style variation."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/contactSubmissions/{submissionId}",
+        "definition": {
+          "entityName": "ContactSubmission",
+          "schema": {
+            "$ref": "#/backend/entities/ContactSubmission"
+          },
+          "description": "Stores submissions from the public contact form. This collection is publicly writable.",
+          "params": [
+            {
+              "name": "submissionId",
+              "description": "The unique identifier of the contact submission."
             }
           ]
         }

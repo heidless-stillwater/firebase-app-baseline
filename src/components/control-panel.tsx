@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { AetheriaLogo } from '@/components/aetheria-logo';
 import {
   Sidebar,
@@ -135,9 +136,14 @@ export function ControlPanel({
 
       </SidebarContent>
       <SidebarFooter>
-        <p className="text-center text-xs text-muted-foreground">
-          Built with Firebase and Genkit.
-        </p>
+        <div className="space-y-1 text-center text-xs text-muted-foreground">
+          <p>
+            Built with Firebase and Genkit.
+          </p>
+          <Link href="/contact" className="underline hover:text-foreground">
+            Contact Us
+          </Link>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

@@ -311,7 +311,7 @@
         }
       },
       {
-        "path": "/contactSubmissions/{submissionId}",
+        "path": "/contacts/{contactId}",
         "definition": {
           "entityName": "ContactSubmission",
           "schema": {
@@ -320,7 +320,7 @@
           "description": "Stores submissions from the public contact form. This collection is publicly writable.",
           "params": [
             {
-              "name": "submissionId",
+              "name": "contactId",
               "description": "The unique identifier of the contact submission."
             }
           ]

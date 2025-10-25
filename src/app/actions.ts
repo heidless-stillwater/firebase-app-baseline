@@ -124,7 +124,7 @@ export async function submitContactForm(formData: FormData): Promise<{ success: 
       attachmentUrl = await uploadFileToStorage(attachment, userId);
     }
 
-    await addDoc(collection(firestore, 'contactSubmissions'), {
+    await addDoc(collection(firestore, 'contacts'), {
       name,
       email,
       message,

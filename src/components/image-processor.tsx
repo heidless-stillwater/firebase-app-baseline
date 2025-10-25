@@ -4,12 +4,17 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useUser, useFirebaseApp } from '@/firebase';
+import { useUser, useFirebaseApp, useFirestore } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 // Helper function to resize image using Canvas
 const resizeImage = (file: File, maxWidth: number): Promise<Blob> => {
@@ -63,6 +68,7 @@ export function ImageProcessor() {
   const [transformedImageUrl, setTransformedImageUrl] = useState<string | null>(null);
   const { user } = useUser();
   const firebaseApp = useFirebaseApp();
+  const firestore = useFirestore();
   const { toast } = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +96,6 @@ export function ImageProcessor() {
     setIsUploading(true);
 
     const storage = getStorage(firebaseApp);
-    const firestore = getFirestore(firebaseApp);
     const timestamp = Date.now();
     const originalFileName = selectedFile.name;
 
@@ -118,21 +123,34 @@ export function ImageProcessor() {
       setTransformedImageUrl(transformedDownloadURL);
 
       // 4. Save record to Firestore
-      await addDoc(collection(firestore, 'imageRecords'), {
+      const imageRecordData = {
         userId: user.uid,
         originalImageUrl: originalDownloadURL,
         transformedImageUrl: transformedDownloadURL,
         originalFileName: originalFileName,
         timestamp: serverTimestamp(),
-      });
+      };
+      
+      const collectionRef = collection(firestore, 'imageRecords');
 
-      toast({
-        title: 'Upload Complete',
-        description: 'Original and transformed images have been saved.',
-      });
+      addDoc(collectionRef, imageRecordData)
+        .then(() => {
+          toast({
+            title: 'Upload Complete',
+            description: 'Original and transformed images have been saved.',
+          });
+        })
+        .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: collectionRef.path,
+            operation: 'create',
+            requestResourceData: imageRecordData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
     } catch (error: any) {
-      console.error('Upload process failed:', error);
+      // This will now only catch errors from storage uploads or resizing
       toast({
         variant: 'destructive',
         title: 'Upload Failed',

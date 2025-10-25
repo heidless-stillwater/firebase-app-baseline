@@ -1,0 +1,280 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Aetheria application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user.",
+          "format": "uuid"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        },
+        "lastLogin": {
+          "type": "string",
+          "description": "Timestamp indicating the last time the user logged in.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "createdAt"
+      ]
+    },
+    "Image": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Image",
+      "type": "object",
+      "description": "Represents an image uploaded by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the image.",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who uploaded the image. (Relationship: User 1:N Image)"
+        },
+        "originalFileName": {
+          "type": "string",
+          "description": "Original file name of the uploaded image."
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "Timestamp indicating when the image was uploaded.",
+          "format": "date-time"
+        },
+        "fileSize": {
+          "type": "number",
+          "description": "File size of the image in bytes."
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the image file."
+        },
+        "storageUrl": {
+          "type": "string",
+          "description": "URL where the image is stored (e.g., Firebase Storage).",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "originalFileName",
+        "uploadDate",
+        "fileSize",
+        "mimeType",
+        "storageUrl"
+      ]
+    },
+    "EnhancedImage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "EnhancedImage",
+      "type": "object",
+      "description": "Represents an enhanced version of an original image.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the enhanced image.",
+          "format": "uuid"
+        },
+        "imageId": {
+          "type": "string",
+          "description": "Reference to the original Image that was enhanced. (Relationship: Image 1:N EnhancedImage)"
+        },
+        "enhancementType": {
+          "type": "string",
+          "description": "Type of enhancement applied (e.g., upscale, denoise)."
+        },
+        "enhancementDate": {
+          "type": "string",
+          "description": "Timestamp indicating when the enhancement was applied.",
+          "format": "date-time"
+        },
+        "storageUrl": {
+          "type": "string",
+          "description": "URL where the enhanced image is stored.",
+          "format": "uri"
+        },
+        "fileSize": {
+          "type": "number",
+          "description": "File size of the enhanced image in bytes."
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the enhanced image file."
+        }
+      },
+      "required": [
+        "id",
+        "imageId",
+        "enhancementType",
+        "enhancementDate",
+        "storageUrl",
+        "fileSize",
+        "mimeType"
+      ]
+    },
+    "StyleVariation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StyleVariation",
+      "type": "object",
+      "description": "Represents a stylistic variation generated from an original image.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the style variation.",
+          "format": "uuid"
+        },
+        "imageId": {
+          "type": "string",
+          "description": "Reference to the original Image used to generate the style variation. (Relationship: Image 1:N StyleVariation)"
+        },
+        "styleName": {
+          "type": "string",
+          "description": "Name of the style applied (e.g., Van Gogh, Impressionism)."
+        },
+        "generationDate": {
+          "type": "string",
+          "description": "Timestamp indicating when the style variation was generated.",
+          "format": "date-time"
+        },
+        "storageUrl": {
+          "type": "string",
+          "description": "URL where the style variation image is stored.",
+          "format": "uri"
+        },
+        "fileSize": {
+          "type": "number",
+          "description": "File size of the style variation image in bytes."
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the style variation image file."
+        }
+      },
+      "required": [
+        "id",
+        "imageId",
+        "styleName",
+        "generationDate",
+        "storageUrl",
+        "fileSize",
+        "mimeType"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information.  Path-based ownership ensures only the user can access their profile.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/images/{imageId}",
+        "definition": {
+          "entityName": "Image",
+          "schema": {
+            "$ref": "#/backend/entities/Image"
+          },
+          "description": "Stores image metadata. Path-based ownership ensures only the user can access their images.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "imageId",
+              "description": "The unique identifier of the image."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}",
+        "definition": {
+          "entityName": "EnhancedImage",
+          "schema": {
+            "$ref": "#/backend/entities/EnhancedImage"
+          },
+          "description": "Stores metadata for enhanced versions of images.  Path-based ownership inherits access control from the parent image.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "imageId",
+              "description": "The unique identifier of the original image."
+            },
+            {
+              "name": "enhancedImageId",
+              "description": "The unique identifier of the enhanced image."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/images/{imageId}/styleVariations/{styleVariationId}",
+        "definition": {
+          "entityName": "StyleVariation",
+          "schema": {
+            "$ref": "#/backend/entities/StyleVariation"
+          },
+          "description": "Stores metadata for style variations of images. Path-based ownership inherits access control from the parent image.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "imageId",
+              "description": "The unique identifier of the original image."
+            },
+            {
+              "name": "styleVariationId",
+              "description": "The unique identifier of the style variation."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability, following the specified design principles. Each collection is designed with a homogeneous security posture and clear ownership. I have used hierarchical paths for user-owned data and denormalized any authorization data that needs to be consistent.\n\n1.  **User Data:** User profiles are stored in `/users/{userId}`. This path-based ownership simplifies security rules.\n2.  **Image Data:** Images are stored in `/users/{userId}/images/{imageId}` to maintain the `User 1:N Image` relationship.  This ensures that only the user can access their images without needing complex `get()` calls in security rules.\n3.  **Enhanced Images and Style Variations:** These are stored as subcollections of the `Image` document (`/users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}` and `/users/{userId}/images/{imageId}/styleVariations/{styleVariationId}`). This continues the path-based ownership model, ensuring that enhanced images and style variations inherit the same access control as their parent images. By continuing the hierarchy, we avoid the need to denormalize authorization context, because the parent's authorization context (the user ID) is encoded in the path.\n\nThis structure provides Authorization Independence, as access control is based solely on the path.  It also supports the required QAPs because listing images, enhanced images, and style variations is secure by default, as the list operation is scoped to the user's path."
+  }
+}

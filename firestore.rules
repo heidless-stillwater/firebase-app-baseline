@@ -1,0 +1,142 @@
+/**
+ * @file Firebase Security Rules for Aetheria Application
+ *
+ * @core_philosophy This ruleset enforces a strict user-ownership model. Users can only
+ *                access their own data, including their profile, images, enhanced images,
+ *                and style variations.
+ *
+ * @data_structure The data is organized hierarchically under /users/{userId}, with
+ *                 subcollections for images, enhanced images, and style variations.
+ *                 This structure simplifies authorization rules and ensures that
+ *                 access control is based on the user's ID.
+ *
+ * @key_security_decisions
+ *   - User listing is disallowed to protect user privacy.
+ *   - Path-based ownership is enforced for all data.
+ *   - Data validation is limited to ensuring relational integrity (e.g., userId in
+ *     the path matches the userId in the document data).
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profile data.
+     * @path /users/{userId}
+     * @allow (create) User with ID 'user123' can create their profile.
+     * @deny (create) User with ID 'user123' cannot create another user's profile (e.g., 'user456').
+     * @allow (get, update, delete) User with ID 'user123' can access their own profile.
+     * @deny (get, update, delete) User with ID 'user123' cannot access another user's profile (e.g., 'user456').
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      // Allow the user to read their own profile.
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to create their own profile if the user ID matches.
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+
+      // Allow the user to update their own profile if the user ID matches. Enforce immutability on ID to guarantee ongoing path consistency.
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Allow the user to delete their own profile.
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+
+      // Do not allow listing all users.
+      allow list: if false;
+    }
+
+    /**
+     * @description Controls access to images uploaded by a user.
+     * @path /users/{userId}/images/{imageId}
+     * @allow (create) User with ID 'user123' can create an image in their own directory.
+     * @deny (create) User with ID 'user123' cannot create an image in another user's directory.
+     * @allow (get, update, delete) User with ID 'user123' can access their own image.
+     * @deny (get, update, delete) User with ID 'user123' cannot access another user's image.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/images/{imageId} {
+      // Allow the user to read their own images.
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to create images in their own directory.
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+
+      // Allow the user to update their own images if the user ID matches. Enforce immutability on userId to guarantee ongoing path consistency.
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+
+      // Allow the user to delete their own images.
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+
+      // Allow the user to list their own images.
+      allow list: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description Controls access to enhanced images generated from a user's original image.
+     * @path /users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}
+     * @allow (create) User with ID 'user123' can create an enhanced image for their own original image.
+     * @deny (create) User with ID 'user123' cannot create an enhanced image for another user's original image.
+     * @allow (get, update, delete) User with ID 'user123' can access their own enhanced image.
+     * @deny (get, update, delete) User with ID 'user123' cannot access another user's enhanced image.
+     * @principle Enforces document ownership for all operations, inheriting ownership from the parent image.
+     */
+    match /users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId} {
+      // Allow the user to read their own enhanced images.
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to create enhanced images for their own original image.
+      allow create: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to update their own enhanced images.
+      allow update: if isSignedIn() && isExistingOwner(userId);
+
+      // Allow the user to delete their own enhanced images.
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+
+      // Allow the user to list their own enhanced images.
+      allow list: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description Controls access to style variations generated from a user's original image.
+     * @path /users/{userId}/images/{imageId}/styleVariations/{styleVariationId}
+     * @allow (create) User with ID 'user123' can create a style variation for their own original image.
+     * @deny (create) User with ID 'user123' cannot create a style variation for another user's original image.
+     * @allow (get, update, delete) User with ID 'user123' can access their own style variation.
+     * @deny (get, update, delete) User with ID 'user123' cannot access another user's style variation.
+     * @principle Enforces document ownership for all operations, inheriting ownership from the parent image.
+     */
+    match /users/{userId}/images/{imageId}/styleVariations/{styleVariationId} {
+      // Allow the user to read their own style variations.
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to create style variations for their own original image.
+      allow create: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to update their own style variations.
+      allow update: if isSignedIn() && isExistingOwner(userId);
+
+      // Allow the user to delete their own style variations.
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+
+      // Allow the user to list their own style variations.
+      allow list: if isSignedIn() && isOwner(userId);
+    }
+  }
+
+  // Helper function to determine if the user is signed in.
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  // Helper function to determine if the user is the owner of the resource.
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  // Helper function to determine if the user is the owner of the resource and if the resource exists.
+  function isExistingOwner(userId) {
+    return isSignedIn() && isOwner(userId) && resource != null;
+  }
+}

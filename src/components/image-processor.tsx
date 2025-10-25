@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUser, useFirebaseApp } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -18,9 +19,15 @@ const resizeImage = (file: File, maxWidth: number): Promise<Blob> => {
       const img = document.createElement('img');
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const scale = maxWidth / img.width;
-        const newWidth = img.width * scale;
-        const newHeight = img.height * scale;
+        let newWidth = img.width;
+        let newHeight = img.height;
+
+        if (img.width > maxWidth) {
+          const scale = maxWidth / img.width;
+          newWidth = img.width * scale;
+          newHeight = img.height * scale;
+        }
+        
 
         canvas.width = newWidth;
         canvas.height = newHeight;
@@ -83,11 +90,12 @@ export function ImageProcessor() {
     setIsUploading(true);
 
     const storage = getStorage(firebaseApp);
+    const firestore = getFirestore(firebaseApp);
     const timestamp = Date.now();
     const originalFileName = selectedFile.name;
 
-    // 1. Upload original image
     try {
+      // 1. Upload original image
       const originalPath = `user-uploads/${user.uid}/${timestamp}-original-${originalFileName}`;
       const originalStorageRef = ref(storage, originalPath);
       const originalSnapshot = await uploadBytes(originalStorageRef, selectedFile);
@@ -108,6 +116,15 @@ export function ImageProcessor() {
       const transformedSnapshot = await uploadBytes(transformedStorageRef, transformedBlob);
       const transformedDownloadURL = await getDownloadURL(transformedSnapshot.ref);
       setTransformedImageUrl(transformedDownloadURL);
+
+      // 4. Save record to Firestore
+      await addDoc(collection(firestore, 'imageRecords'), {
+        userId: user.uid,
+        originalImageUrl: originalDownloadURL,
+        transformedImageUrl: transformedDownloadURL,
+        originalFileName: originalFileName,
+        timestamp: serverTimestamp(),
+      });
 
       toast({
         title: 'Upload Complete',
@@ -184,7 +201,7 @@ export function ImageProcessor() {
           {isUploading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : null}
-          Upload and Process Image
+          { isUploading ? 'Uploading...' : 'Upload and Process Image'}
         </Button>
       </CardContent>
     </Card>

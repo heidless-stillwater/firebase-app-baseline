@@ -1,145 +1,173 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles and associated image data.
- * All user-related data is nested under /users/{userId}, providing clear path-based authorization.
- * Contact form submissions are publicly writable.
+ * @file Firebase Security Rules for Aetheria Application
  *
- * Data Structure:
- * - /users/{userId}: User profile data, accessible only by the user.
- * - /users/{userId}/images/{imageId}: Image metadata, accessible only by the user.
- * - /users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}: Enhanced image metadata, inherits access control from the parent image.
- * - /users/{userId}/images/{imageId}/styleVariations/{styleVariationId}: Style variation metadata, inherits access control from the parent image.
- * - /contacts/{contactId}: Contact form submissions; publicly writable.
- * - /imageRecords/{imageRecordId}: Records of original and transformed images, accessible only by the owning user.
+ * @corePhilosophy This ruleset enforces a strict user-ownership model for user profiles and image data,
+ * with public write access granted to the contact form submissions.
  *
- * Key Security Decisions:
- * - User listing is disabled.
- * - Contact form submissions are publicly writable to allow for easy form submissions without authentication.
- * - The default security posture is strict owner-only access unless explicitly defined otherwise.
+ * @dataStructure The Firestore database is structured hierarchically:
+ *   - /users/{userId}: Stores user profile information, accessible only by the user.
+ *   - /users/{userId}/images/{imageId}: Stores image metadata, accessible only by the user.
+ *   - /users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}: Stores enhanced image metadata, accessible only by the user.
+ *   - /users/{userId}/images/{imageId}/styleVariations/{styleVariationId}: Stores style variation metadata, accessible only by the user.
+ *   - /contacts/{contactId}: Stores contact form submissions, publicly writable.
+ *   - /imageRecords/{imageRecordId}: Stores records of original and transformed images, accessible only by the owner.
+ *
+ * @keySecurityDecisions
+ *   - User listing is disallowed for privacy.
+ *   - Contact form submissions are publicly writable to allow anyone to submit the form.
+ *   - Default security posture for ambiguous relationships is strict owner-only access.
+ *
+ * @denormalizationForAuthorization
+ *   - The `ImageRecord` entity requires the `userId` to be duplicated within the document.
+ *     This enables performant authorization checks without needing to query other collections.
+ *
+ * @structuralSegregation
+ *   - Publicly writable data (contact form submissions) is stored in a separate top-level collection
+ *     (/contacts) to avoid mixing public and private data within the same collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by the owner of the resource.
-     * @param {string} userId - The user ID to compare against the request's auth UID.
-     * @return {boolean} - True if the user ID matches the request's auth UID, false otherwise.
-     */
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the request is made by the owner of the resource and the resource exists.
-     * @param {string} userId - The user ID to compare against the request's auth UID.
-     * @return {boolean} - True if the user ID matches the request's auth UID and the resource exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Enforces that a critical field is immutable on update.
-     * @param {string} field - The name of the field to check.
-     * @return {boolean} - True if the field is unchanged, false otherwise.
-     */
-    function isImmutable(field) {
-      return request.resource.data[field] == resource.data[field];
-    }
-
-    /**
-     * @description
+     * @description Enforces user-ownership for user profiles.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their profile with matching userId.
-     * @deny (create) User with ID 'user123' cannot create a profile with userId 'user456'.
-     * @principle Enforces path-based ownership, ensuring only the authenticated user can create their profile.
+     * @allow (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can create their own profile.
+     * @deny (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot create a profile for another user.
+     * @allow (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can read their own profile.
+     * @deny (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot read another user's profile.
+     * @allow (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can update their own profile.
+     * @deny (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot update another user's profile.
+     * @allow (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can delete their own profile.
+     * @deny (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot delete another user's profile.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
       allow get: if isOwner(userId);
       allow list: if false;
-
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && isImmutable('id');
-      allow delete: if isExistingOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description
+     * @description Enforces user-ownership for images.
      * @path /users/{userId}/images/{imageId}
-     * @allow (create) User with ID 'user123' can create an image in their images collection.
-     * @deny (create) User with ID 'user123' cannot create an image in another user's collection.
-     * @principle Enforces path-based ownership for images.
+     * @allow (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can create an image record under their profile.
+     * @deny (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot create an image record under another user's profile.
+     * @allow (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can read their own image record.
+     * @deny (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot read another user's image record.
+     * @allow (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can update their own image record.
+     * @deny (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot update another user's image record.
+     * @allow (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can delete their own image record.
+     * @deny (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot delete another user's image record.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/images/{imageId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && isImmutable('userId');
-      allow delete: if isExistingOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description
+     * @description Enforces user-ownership for enhanced images.
      * @path /users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}
-     * @allow (create) User 'user123' can create an enhanced image for their image.
-     * @deny (create) User 'user123' cannot create an enhanced image for another user's image.
-     * @principle Enforces hierarchical ownership for enhanced images.
+     * @allow (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can create an enhanced image record under their image.
+     * @deny (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot create an enhanced image record under another user's image.
+     * @allow (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can read their own enhanced image record.
+     * @deny (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot read another user's enhanced image record.
+     * @allow (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can update their own enhanced image record.
+     * @deny (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot update another user's enhanced image record.
+     * @allow (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can delete their own enhanced image record.
+     * @deny (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot delete another user's enhanced image record.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-
       allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description
+     * @description Enforces user-ownership for style variations.
      * @path /users/{userId}/images/{imageId}/styleVariations/{styleVariationId}
-     * @allow (create) User 'user123' can create a style variation for their image.
-     * @deny (create) User 'user123' cannot create a style variation for another user's image.
-     * @principle Enforces hierarchical ownership for style variations.
+     * @allow (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can create a style variation record under their image.
+     * @deny (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot create a style variation record under another user's image.
+     * @allow (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can read their own style variation record.
+     * @deny (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot read another user's style variation record.
+     * @allow (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can update their own style variation record.
+     * @deny (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot update another user's style variation record.
+     * @allow (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can delete their own style variation record.
+     * @deny (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot delete another user's style variation record.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/images/{imageId}/styleVariations/{styleVariationId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-
       allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description
+     * @description Allows anyone to create contact submissions.
      * @path /contacts/{contactId}
-     * @allow (create) Any user (signed in or not) can submit a contact form.
-     * @deny (read)  No user can read the contact form
-     * @principle Allows public writes for contact form submissions.
+     * @allow (create) Any unauthenticated user can submit the contact form.
+     * @deny (get) No read access granted.
+     * @deny (list) No listing granted.
+     * @deny (update) No write access granted.
+     * @deny (delete) No delete access granted.
+     * @principle Provides public write access for contact submissions.
      */
     match /contacts/{contactId} {
       allow get: if false;
       allow list: if false;
-
       allow create: if true;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description
+     * @description Enforces user-ownership for image records.
      * @path /imageRecords/{imageRecordId}
-     * @allow (create) User with ID 'user123' can create an image record if the userId matches.
-     * @deny (create) User with ID 'user123' cannot create an image record if the userId does not match.
+     * @allow (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can create an image record if the userId field matches their auth UID.
+     * @deny (create) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot create an image record if the userId field does not match their auth UID.
+     * @allow (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can read their own image record.
+     * @deny (get) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot read another user's image record.
+     * @allow (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can update their own image record.
+     * @deny (update) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot update another user's image record.
+     * @allow (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 can delete their own image record.
+     * @deny (delete) User s6LBjQB1i6MdN3AsIKBzbjThEDB2 cannot delete another user's image record.
+     * @principle Enforces document ownership for writes.
      */
     match /imageRecords/{imageRecordId} {
-        allow get: if false;
-        allow list: if false;
-        allow create: if request.auth.uid == request.resource.data.userId;
-        allow update: if false;
-        allow delete: if false;
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isValidCreateRequest() {
+        return request.resource.data.userId == request.auth.uid;
+      }
+      allow get: if isOwner(resource.data.userId);
+      allow list: if false;
+      allow create: if isValidCreateRequest();
+      allow update: if isOwner(resource.data.userId) && resource != null;
+      allow delete: if isOwner(resource.data.userId) && resource != null;
     }
   }
 }

@@ -2,14 +2,59 @@
 
 import { enhanceImage } from '@/ai/flows/automatically-enhance-uploaded-images';
 import { generateStylisticVariations } from '@/ai/flows/generate-stylistic-variations';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 
-export async function performImageEnhancement(photoDataUri: string) {
+async function uploadToStorage(dataUrl: string, userId: string): Promise<string> {
+  const { firebaseApp } = initializeFirebase();
+  const storage = getStorage(firebaseApp);
+  const fileExtension = dataUrl.split(';')[0].split('/')[1];
+  const storageRef = ref(storage, `images/${userId}/${Date.now()}.${fileExtension}`);
+  const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
+  return getDownloadURL(snapshot.ref);
+}
+
+export async function performImageUpload(dataUrl: string, userId: string, fileName: string): Promise<{ id: string; url: string }> {
+  const { firestore } = initializeFirebase();
+  const storageUrl = await uploadToStorage(dataUrl, userId);
+
+  const imageDocRef = await addDoc(collection(firestore, 'users', userId, 'images'), {
+    originalFileName: fileName,
+    uploadDate: serverTimestamp(),
+    storageUrl,
+    mimeType: dataUrl.split(';')[0].split(':')[1],
+    userId,
+  });
+
+  return { id: imageDocRef.id, url: storageUrl };
+}
+
+
+export async function performImageEnhancement(
+  photoDataUri: string,
+  userId: string,
+  imageId: string
+): Promise<string> {
   if (!photoDataUri) {
     throw new Error('No image data provided.');
   }
   try {
+    const { firestore } = initializeFirebase();
     const result = await enhanceImage({ photoDataUri });
-    return result.enhancedPhotoDataUri;
+    const enhancedUrl = await uploadToStorage(result.enhancedPhotoDataUri, userId);
+
+    await addDoc(
+      collection(firestore, 'users', userId, 'images', imageId, 'enhancedImages'),
+      {
+        enhancementType: 'upscale_denoise',
+        enhancementDate: serverTimestamp(),
+        storageUrl: enhancedUrl,
+        mimeType: result.enhancedPhotoDataUri.split(';')[0].split(':')[1],
+      }
+    );
+
+    return enhancedUrl;
   } catch (e: any) {
     console.error('Enhancement failed:', e);
     throw new Error(`Failed to enhance image: ${e.message}`);
@@ -18,8 +63,10 @@ export async function performImageEnhancement(photoDataUri: string) {
 
 export async function performVariationGeneration(
   photoDataUri: string,
-  prompt: string
-) {
+  prompt: string,
+  userId: string,
+  imageId: string
+): Promise<string[]> {
   if (!photoDataUri) {
     throw new Error('No image data provided.');
   }
@@ -27,8 +74,26 @@ export async function performVariationGeneration(
     throw new Error('A prompt is required to generate variations.');
   }
   try {
+    const { firestore } = initializeFirebase();
     const result = await generateStylisticVariations({ photoDataUri, prompt });
-    return result.stylisticVariations;
+
+    const variationUrls = await Promise.all(
+      result.stylisticVariations.map(async (variationDataUri) => {
+        const url = await uploadToStorage(variationDataUri, userId);
+        await addDoc(
+          collection(firestore, 'users', userId, 'images', imageId, 'styleVariations'),
+          {
+            styleName: prompt,
+            generationDate: serverTimestamp(),
+            storageUrl: url,
+            mimeType: variationDataUri.split(';')[0].split(':')[1],
+          }
+        );
+        return url;
+      })
+    );
+
+    return variationUrls;
   } catch (e: any) {
     console.error('Variation generation failed:', e);
     throw new Error(`Failed to generate variations: ${e.message}`);

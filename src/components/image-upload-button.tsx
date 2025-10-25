@@ -5,7 +5,7 @@ import { Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ImageUploadButtonProps {
-  onImageSelect: (dataUrl: string) => void;
+  onImageSelect: (dataUrl: string, file: File) => void;
   disabled?: boolean;
 }
 
@@ -21,7 +21,7 @@ export function ImageUploadButton({
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result) {
-          onImageSelect(e.target.result as string);
+          onImageSelect(e.target.result as string, file);
         }
       };
       reader.readAsDataURL(file);

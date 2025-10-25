@@ -217,6 +217,44 @@
         "message",
         "submittedAt"
       ]
+    },
+    "ImageRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ImageRecord",
+      "type": "object",
+      "description": "Represents a record of an original and transformed image.",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who owns this record."
+        },
+        "originalImageUrl": {
+          "type": "string",
+          "description": "URL of the original uploaded image.",
+          "format": "uri"
+        },
+        "transformedImageUrl": {
+          "type": "string",
+          "description": "URL of the transformed image.",
+          "format": "uri"
+        },
+        "originalFileName": {
+          "type": "string",
+          "description": "Original file name of the uploaded image."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp indicating when the record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "originalImageUrl",
+        "transformedImageUrl",
+        "originalFileName",
+        "timestamp"
+      ]
     }
   },
   "auth": {
@@ -322,6 +360,22 @@
             {
               "name": "contactId",
               "description": "The unique identifier of the contact submission."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/imageRecords/{imageRecordId}",
+        "definition": {
+          "entityName": "ImageRecord",
+          "schema": {
+            "$ref": "#/backend/entities/ImageRecord"
+          },
+          "description": "Stores records of original and transformed images.",
+          "params": [
+            {
+              "name": "imageRecordId",
+              "description": "The unique identifier for the image record."
             }
           ]
         }

@@ -184,8 +184,7 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
@@ -275,6 +274,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability, following the specified design principles. Each collection is designed with a homogeneous security posture and clear ownership. I have used hierarchical paths for user-owned data and denormalized any authorization data that needs to be consistent.\n\n1.  **User Data:** User profiles are stored in `/users/{userId}`. This path-based ownership simplifies security rules.\n2.  **Image Data:** Images are stored in `/users/{userId}/images/{imageId}` to maintain the `User 1:N Image` relationship.  This ensures that only the user can access their images without needing complex `get()` calls in security rules.\n3.  **Enhanced Images and Style Variations:** These are stored as subcollections of the `Image` document (`/users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}` and `/users/{userId}/images/{imageId}/styleVariations/{styleVariationId}`). This continues the path-based ownership model, ensuring that enhanced images and style variations inherit the same access control as their parent images. By continuing the hierarchy, we avoid the need to denormalize authorization context, because the parent's authorization context (the user ID) is encoded in the path.\n\nThis structure provides Authorization Independence, as access control is based solely on the path.  It also supports the required QAPs because listing images, enhanced images, and style variations is secure by default, as the list operation is scoped to the user's path."
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability, following the specified design principles. Each collection is designed with a homogeneous security posture and clear ownership. I have used hierarchical paths for user-owned data and denormalized any authorization data that needs to be consistent.\\n\\n1.  **User Data:** User profiles are stored in `/users/{userId}`. This path-based ownership simplifies security rules.\\n2.  **Image Data:** Images are stored in `/users/{userId}/images/{imageId}` to maintain the `User 1:N Image` relationship.  This ensures that only the user can access their images without needing complex `get()` calls in security rules.\\n3.  **Enhanced Images and Style Variations:** These are stored as subcollections of the `Image` document (`/users/{userId}/images/{imageId}/enhancedImages/{enhancedImageId}` and `/users/{userId}/images/{imageId}/styleVariations/{styleVariationId}`). This continues the path-based ownership model, ensuring that enhanced images and style variations inherit the same access control as their parent images. By continuing the hierarchy, we avoid the need to denormalize authorization context, because the parent's authorization context (the user ID) is encoded in the path.\\n\\nThis structure provides Authorization Independence, as access control is based solely on the path.  It also supports the required QAPs because listing images, enhanced images, and style variations is secure by default, as the list operation is scoped to the user's path."
   }
 }

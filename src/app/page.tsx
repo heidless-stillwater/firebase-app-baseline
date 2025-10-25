@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   performImageEnhancement,
   performVariationGeneration,
@@ -9,6 +10,8 @@ import { ControlPanel } from '@/components/control-panel';
 import { ImageWorkspace } from '@/components/image-workspace';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
+import { Loader2 } from 'lucide-react';
 
 export default function Home() {
   const [originalImage, setOriginalImage] = React.useState<string | null>(null);
@@ -16,6 +19,14 @@ export default function Home() {
   const [variations, setVariations] = React.useState<string[]>([]);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
 
   const handleImageSelect = (dataUrl: string) => {
     setOriginalImage(dataUrl);
@@ -65,6 +76,14 @@ export default function Home() {
       setIsProcessing(false);
     }
   };
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <main>

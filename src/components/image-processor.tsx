@@ -10,10 +10,50 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
+// Helper function to resize image using Canvas
+const resizeImage = (file: File, maxWidth: number): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = document.createElement('img');
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = maxWidth / img.width;
+        const newWidth = img.width * scale;
+        const newHeight = img.height * scale;
+
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return reject(new Error('Failed to get canvas context'));
+        }
+
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Canvas to Blob conversion failed'));
+          }
+        }, file.type);
+      };
+      img.onerror = reject;
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+
 export function ImageProcessor() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [transformedImageUrl, setTransformedImageUrl] = useState<string | null>(null);
   const { user } = useUser();
   const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
@@ -23,9 +63,11 @@ export function ImageProcessor() {
       const file = event.target.files[0];
       setSelectedFile(file);
       setOriginalImageUrl(URL.createObjectURL(file)); // Create local URL for preview
+      setTransformedImageUrl(null); // Reset transformed image on new file selection
     } else {
       setSelectedFile(null);
       setOriginalImageUrl(null);
+      setTransformedImageUrl(null);
     }
   };
 
@@ -41,27 +83,43 @@ export function ImageProcessor() {
     setIsUploading(true);
 
     const storage = getStorage(firebaseApp);
-    const filePath = `user-uploads/${user.uid}/${Date.now()}-original-${selectedFile.name}`;
-    const storageRef = ref(storage, filePath);
+    const timestamp = Date.now();
+    const originalFileName = selectedFile.name;
 
+    // 1. Upload original image
     try {
-      const snapshot = await uploadBytes(storageRef, selectedFile);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-
-      // We'll use this URL in the next steps.
-      console.log('File available at', downloadURL);
-      setOriginalImageUrl(downloadURL); // Update with the permanent URL
+      const originalPath = `user-uploads/${user.uid}/${timestamp}-original-${originalFileName}`;
+      const originalStorageRef = ref(storage, originalPath);
+      const originalSnapshot = await uploadBytes(originalStorageRef, selectedFile);
+      const originalDownloadURL = await getDownloadURL(originalSnapshot.ref);
+      setOriginalImageUrl(originalDownloadURL);
 
       toast({
-        title: 'Upload Successful',
-        description: 'Original image has been uploaded to Firebase Storage.',
+        title: 'Original Image Uploaded',
+        description: 'Now processing and uploading the transformed version.',
       });
+
+      // 2. Resize image
+      const transformedBlob = await resizeImage(selectedFile, 400);
+
+      // 3. Upload transformed image
+      const transformedPath = `user-uploads/${user.uid}/${timestamp}-transformed-${originalFileName}`;
+      const transformedStorageRef = ref(storage, transformedPath);
+      const transformedSnapshot = await uploadBytes(transformedStorageRef, transformedBlob);
+      const transformedDownloadURL = await getDownloadURL(transformedSnapshot.ref);
+      setTransformedImageUrl(transformedDownloadURL);
+
+      toast({
+        title: 'Upload Complete',
+        description: 'Original and transformed images have been saved.',
+      });
+
     } catch (error: any) {
-      console.error('Upload failed:', error);
+      console.error('Upload process failed:', error);
       toast({
         variant: 'destructive',
         title: 'Upload Failed',
-        description: error.message || 'An unknown error occurred.',
+        description: error.message || 'An unknown error occurred during the process.',
       });
     } finally {
       setIsUploading(false);
@@ -87,16 +145,36 @@ export function ImageProcessor() {
           />
         </div>
 
-        {originalImageUrl && (
-          <div className="relative aspect-video w-full overflow-hidden rounded-md border">
-            <Image
-              src={originalImageUrl}
-              alt="Selected preview"
-              fill
-              className="object-contain"
-            />
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {originalImageUrl && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-center">Original</h3>
+              <div className="relative aspect-video w-full overflow-hidden rounded-md border">
+                <Image
+                  src={originalImageUrl}
+                  alt="Original preview"
+                  fill
+                  className="object-contain"
+                />
+              </div>
+            </div>
+          )}
+
+          {transformedImageUrl && (
+             <div className="space-y-2">
+               <h3 className="text-sm font-medium text-center">Transformed (400px)</h3>
+                <div className="relative aspect-video w-full overflow-hidden rounded-md border">
+                  <Image
+                    src={transformedImageUrl}
+                    alt="Transformed preview"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+            </div>
+          )}
+        </div>
+
 
         <Button
           onClick={handleUpload}
@@ -106,7 +184,7 @@ export function ImageProcessor() {
           {isUploading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : null}
-          Upload Image
+          Upload and Process Image
         </Button>
       </CardContent>
     </Card>

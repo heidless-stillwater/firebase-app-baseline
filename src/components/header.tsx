@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Mail, User, LogOut } from 'lucide-react';
+import { Home, Mail, UploadCloud, User, LogOut } from 'lucide-react';
 import { AetheriaLogo } from './aetheria-logo';
 import { Button } from './ui/button';
 import { useUser, useAuth } from '@/firebase';
@@ -28,6 +28,7 @@ export function Header() {
 
   const navLinks = [
     { href: '/', label: 'Workspace', icon: Home },
+    { href: '/upload-and-display', label: 'Upload', icon: UploadCloud },
     { href: '/contact', label: 'Contact', icon: Mail },
   ];
 

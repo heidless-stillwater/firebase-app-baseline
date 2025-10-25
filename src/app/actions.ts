@@ -4,7 +4,7 @@ import { enhanceImage } from '@/ai/flows/automatically-enhance-uploaded-images';
 import { generateStylisticVariations } from '@/ai/flows/generate-stylistic-variations';
 import { getStorage, ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebase } from '@/firebase/server';
 
 async function uploadToStorage(dataUrl: string, userId: string): Promise<string> {
   const { firebaseApp } = initializeFirebase();

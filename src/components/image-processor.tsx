@@ -16,33 +16,38 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
-// Helper function to resize image using Canvas
-const resizeImage = (file: File, maxWidth: number): Promise<Blob> => {
+// Helper function to convert image to black and white using Canvas
+const convertToBlackAndWhite = (file: File): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = document.createElement('img');
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        let newWidth = img.width;
-        let newHeight = img.height;
-
-        if (img.width > maxWidth) {
-          const scale = maxWidth / img.width;
-          newWidth = img.width * scale;
-          newHeight = img.height * scale;
-        }
-        
-
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-
+        canvas.width = img.width;
+        canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           return reject(new Error('Failed to get canvas context'));
         }
 
-        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        // Draw the image
+        ctx.drawImage(img, 0, 0);
+        
+        // Get image data
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Convert to grayscale
+        for (let i = 0; i < data.length; i += 4) {
+          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+          data[i] = avg; // red
+          data[i + 1] = avg; // green
+          data[i + 2] = avg; // blue
+        }
+        
+        // Put the modified data back
+        ctx.putImageData(imageData, 0, 0);
 
         canvas.toBlob((blob) => {
           if (blob) {
@@ -112,8 +117,8 @@ export function ImageProcessor() {
         description: 'Now processing and uploading the transformed version.',
       });
 
-      // 2. Resize image
-      const transformedBlob = await resizeImage(selectedFile, 400);
+      // 2. Convert to black and white
+      const transformedBlob = await convertToBlackAndWhite(selectedFile);
 
       // 3. Upload transformed image
       const transformedPath = `user-uploads/${user.uid}/${timestamp}-transformed-${originalFileName}`;
@@ -149,7 +154,7 @@ export function ImageProcessor() {
           errorEmitter.emit('permission-error', permissionError);
         });
 
-    } catch (error: any) {
+    } catch (error: any) => {
       // This will now only catch errors from storage uploads or resizing
       toast({
         variant: 'destructive',
@@ -197,7 +202,7 @@ export function ImageProcessor() {
 
           {transformedImageUrl && (
              <div className="space-y-2">
-               <h3 className="text-sm font-medium text-center">Transformed (400px)</h3>
+               <h3 className="text-sm font-medium text-center">Transformed (B&W)</h3>
                 <div className="relative aspect-video w-full overflow-hidden rounded-md border">
                   <Image
                     src={transformedImageUrl}

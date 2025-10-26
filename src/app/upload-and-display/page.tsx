@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { Header } from '@/components/header';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { ImageProcessor } from '@/components/image-processor';
+import { ImageGallery } from '@/components/image-gallery';
 
 export default function UploadAndDisplayPage() {
   const { user, isUserLoading } = useUser();
@@ -39,6 +40,7 @@ export default function UploadAndDisplayPage() {
           <div className="flex flex-1 items-start justify-center rounded-lg border border-dashed shadow-sm">
             <ImageProcessor />
           </div>
+          <ImageGallery />
         </main>
       </SidebarInset>
     </SidebarProvider>

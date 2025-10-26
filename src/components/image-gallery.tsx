@@ -17,10 +17,12 @@ export function ImageGallery() {
 
   const imageRecordsQuery = useMemoFirebase(() => {
     if (!user) return null;
+    // NOTE: orderBy('timestamp') was removed. A composite index would be required
+    // by Firestore to query on 'userId' and order by 'timestamp'.
+    // Simplifying the query to just filter by userId resolves the permission error.
     return query(
       collection(firestore, 'imageRecords'),
-      where('userId', '==', user.uid),
-      orderBy('timestamp', 'desc')
+      where('userId', '==', user.uid)
     );
   }, [firestore, user]);
 
@@ -43,10 +45,17 @@ export function ImageGallery() {
         </div>
       );
     }
+    
+    // Sort records by timestamp client-side
+    const sortedRecords = [...imageRecords].sort((a, b) => {
+        const timestampA = a.timestamp?.toMillis() || 0;
+        const timestampB = b.timestamp?.toMillis() || 0;
+        return timestampB - timestampA;
+    });
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {imageRecords.map((record) => (
+        {sortedRecords.map((record) => (
           <Card key={record.id} className="overflow-hidden">
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">

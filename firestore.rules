@@ -169,5 +169,22 @@ service cloud.firestore {
       allow update: if isOwner(resource.data.userId) && resource != null;
       allow delete: if isOwner(resource.data.userId) && resource != null;
     }
+
+    match /imageRecords/{documentId} {
+      // 🚨 FIX: Allow 'read' (which covers 'get' and 'list') only if the user is authenticated 
+      // AND the document belongs to the current user.
+      allow read: if request.auth != null && 
+                    resource.data.userId == request.auth.uid;
+
+      // Ensure 'create' also enforces ownership
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+                      
+      // Deny updates and deletes
+      allow update, delete: if false;
+    }
+
+
+
   }
 }
